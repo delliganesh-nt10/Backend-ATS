@@ -7,7 +7,12 @@ from passlib.context import CryptContext
 from app.core.config import settings
 from app.utils.helper import get_current_time
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use passlib's bcrypt_sha256 scheme. Passlib will pre-hash with
+# SHA-256 before calling bcrypt which avoids the bcrypt 72-byte limit.
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt_sha256"],
+    deprecated="auto",
+)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -28,6 +33,16 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+
+
+def needs_rehash(hashed_password: str) -> bool:
+    """Return True if the stored hash should be upgraded to the
+    current preferred scheme/parameters.
+    """
+    try:
+        return pwd_context.needs_update(hashed_password)
+    except Exception:
+        return False
 
 
 def decode_jwt_token(token: str):

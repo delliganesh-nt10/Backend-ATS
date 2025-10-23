@@ -2,7 +2,7 @@ import os
 import secrets
 from typing import Annotated, Any, Literal
 
-from pydantic import AnyUrl, BeforeValidator, computed_field
+from pydantic import AnyUrl, BeforeValidator, computed_field, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,8 +41,9 @@ class Settings(BaseSettings):
 
     JWT_ALGORITHM: str = "HS256"
 
-    DB_URL: str = os.getenv(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost/hirehub"
+    DB_URL: str = Field(
+        "postgresql://postgres:navat@localhost/yourdb",
+        env="DATABASE_URL",
     )
     # Microsoft Graph / Azure AD configuration (optional)
     AZURE_TENANT_ID: str | None = None

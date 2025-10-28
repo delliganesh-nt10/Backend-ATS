@@ -6,7 +6,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.api import api_router
-from app.core.constants import ALLOWED_HEADERS, ALLOWED_METHODS, ALLOWED_ORIGINS
+from app.core.config import settings
+from app.core.constants import ALLOWED_HEADERS, ALLOWED_METHODS
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.utils.logging_utils import setup_logger
 
@@ -24,7 +25,7 @@ app.add_middleware(LoggingMiddleware)
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.all_cors_origins,
     allow_credentials=True,
     allow_methods=ALLOWED_METHODS,
     allow_headers=ALLOWED_HEADERS,

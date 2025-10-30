@@ -39,3 +39,4 @@ jobs:
           echo " restarting backend services "
           sudo systemctl restart ats-backend
           echo " deployment cimoleted successfully"
+          EOF

@@ -1,9 +1,9 @@
-name: Deploy FastAPI BAckend to EC2
+name: Deploy FastAPI Backend to EC2
 
 on:
   push:
     branches:
-      -main 
+      - main  # Trigger deployment whenever code is pushed to the main branch
 
 jobs:
   deploy:
@@ -11,32 +11,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout the latest code from your repo
       - name: Checkout latest code
         uses: actions/checkout@v3
 
+      # 2. Setup SSH key for secure EC2 connection
       - name: Setup SSH for EC2 connection
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Update backend environment file(.env)
+      # 3. (Optional) Update .env file automatically on the EC2 server
+      - name: Update backend environment file (.env)
         run: |
+          echo "Updating environment file on EC2..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
           echo "${{ secrets.BACKEND_ENV }}" > /var/www/Elden-ATS/Backend-ATS/.env
           EOF
 
-      - name: Deploy and restart backend oEC2
+      # 4. Deploy new code and restart backend service
+      - name: Deploy and restart backend on EC2
         run: |
+          echo "Starting deployment on EC2..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          set -e
           cd /var/www/Elden-ATS/Backend-ATS
-          echo " puliing latest code "
-          git pull origin main
-          echo " Activating virtual environment "
-          source /var/www/Elden-ATS/Backend-ATS/.venv/bin/activate
-          echo " Installing dependencies "
-          pip install -r /var/www/Elden-ATS/Backend-ATS/requirements.txt 
-          echo " restarting backend services "
+          
+          echo "Pulling latest code..."
+          git fetch origin main
+          git reset --hard origin/main
+
+          echo "Activating virtual environment..."
+          source .venv/bin/activate
+
+          echo "Installing dependencies..."
+          pip install --no-cache-dir -r requirements.txt
+
+          echo "Restarting backend service..."
+          sudo systemctl daemon-reload
           sudo systemctl restart ats-backend
-          echo " deployment cimoleted successfully"
+
+          echo "Deployment completed successfully."
           EOF

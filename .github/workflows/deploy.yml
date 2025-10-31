@@ -15,7 +15,16 @@ jobs:
       - name: Checkout latest code
         uses: actions/checkout@v4
 
-      - name: Deploy and restart backend on EC2
+      - name: Copy backend files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "./"
+          target: "/var/www/Elden-ATS/Backend-ATS"
+
+      - name: Run backend setup and restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -27,7 +36,7 @@ jobs:
 
             cd /var/www/Elden-ATS/Backend-ATS
 
-            # Backup .env if exists
+            # Backup old environment file
             if [ -f .env ]; then
               cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
             fi
@@ -35,27 +44,15 @@ jobs:
             # Create new .env from GitHub secret
             echo "${{ secrets.BACKEND_ENV }}" > .env
 
-            # Update or clone repository
-            if [ ! -d ".git" ]; then
-              cd /var/www/Elden-ATS
-              sudo rm -rf Backend-ATS
-              sudo git clone ${{ github.server_url }}/${{ github.repository }} Backend-ATS
-              cd Backend-ATS
-              sudo chown -R ubuntu:ubuntu /var/www/Elden-ATS/Backend-ATS
-            else
-              git fetch origin main
-              git reset --hard origin/main
-            fi
-
-            # Create virtual environment if missing
+            # Create virtual environment if not exists
             if [ ! -d ".venv" ]; then
               python3 -m venv .venv
             fi
 
-            # Activate environment and install dependencies
             source .venv/bin/activate
             pip install --upgrade pip --quiet
 
+            # Install dependencies
             if [ -f requirements.txt ]; then
               pip install --no-cache-dir -r requirements.txt --quiet
             fi

@@ -8,41 +8,51 @@ on:
 
 jobs:
   deploy:
+    name: Deploy Backend to EC2
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout latest code
         uses: actions/checkout@v4
 
-      - name: Copy code to EC2 via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "."
-          target: "/var/www/Elden-ATS/Backend-ATS"
-
-      - name: SSH and restart backend service
+      - name: Deploy and restart backend on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: false
           script: |
             set -e
+
             cd /var/www/Elden-ATS/Backend-ATS
 
+            # Backup .env if exists
             if [ -f .env ]; then
               cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
             fi
 
+            # Create new .env from GitHub secret
             echo "${{ secrets.BACKEND_ENV }}" > .env
 
+            # Update or clone repository
+            if [ ! -d ".git" ]; then
+              cd /var/www/Elden-ATS
+              sudo rm -rf Backend-ATS
+              sudo git clone ${{ github.server_url }}/${{ github.repository }} Backend-ATS
+              cd Backend-ATS
+              sudo chown -R ubuntu:ubuntu /var/www/Elden-ATS/Backend-ATS
+            else
+              git fetch origin main
+              git reset --hard origin/main
+            fi
+
+            # Create virtual environment if missing
             if [ ! -d ".venv" ]; then
               python3 -m venv .venv
             fi
 
+            # Activate environment and install dependencies
             source .venv/bin/activate
             pip install --upgrade pip --quiet
 
@@ -50,14 +60,10 @@ jobs:
               pip install --no-cache-dir -r requirements.txt --quiet
             fi
 
-            sudo systemctl restart ats-backend
-            sleep 3
-
-            if sudo systemctl is-active --quiet ats-backend; then
-              if ! (curl -s http://127.0.0.1:8000 > /dev/null || curl -s http://127.0.0.1:8000/docs > /dev/null); then
-                exit 1
-              fi
-            else
-              sudo journalctl -u ats-backend -n 50 --no-pager
-              exit 1
+            # Run Alembic migrations
+            if [ -d "migrations" ] || [ -d "alembic" ]; then
+              alembic upgrade head
             fi
+
+            # Restart backend service
+            sudo systemctl restart ats-backend

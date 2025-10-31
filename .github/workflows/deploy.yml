@@ -36,11 +36,6 @@ jobs:
 
             cd /var/www/Elden-ATS/Backend-ATS
 
-            # Backup old environment file
-            if [ -f .env ]; then
-              cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
-            fi
-
             # Create new .env from GitHub secret
             echo "${{ secrets.BACKEND_ENV }}" > .env
 
